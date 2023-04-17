@@ -1,0 +1,53 @@
+import os
+import pydicom
+import matplotlib.pyplot as plt
+import numpy as np
+
+#--------------------------------------------------------------------------
+
+
+INPUT_FOLDER = r'C:\Users\vnuttens\Downloads\2022-12__Studies\CT.CTDI.PET_ANON42570_CT_2022-12-09_010000_NucOncoPetWbCt01_Totaal.TSS...iMAR_n1336__00000'
+
+patients = os.listdir(INPUT_FOLDER)
+patients.sort()
+lstFilesDCM = []
+def load_scan2(path):
+    for dirName, subdirList, fileList in os.walk(path):
+        for filename in fileList:
+            if ".dcm" in filename.lower():
+                lstFilesDCM.append(os.path.join(dirName,filename))
+    return lstFilesDCM
+first_patient = load_scan2(INPUT_FOLDER)
+
+RefDs = pydicom.read_file(lstFilesDCM[0])
+ConstPixelDims = (int(RefDs.Rows),int(RefDs.Columns),len(lstFilesDCM))
+ConstPixelSpacing = (float(RefDs.PixelSpacing[0]),float(RefDs.PixelSpacing[1]),float(RefDs.SliceThickness))
+
+print(ConstPixelDims)
+print(ConstPixelSpacing)
+
+x = np.arange(0.0,(ConstPixelDims[0]+1)*ConstPixelSpacing[0],ConstPixelSpacing[0])
+y = np.arange(0.0,(ConstPixelDims[1]+1)*ConstPixelSpacing[1],ConstPixelSpacing[1])
+z = np.arange(0.0,(ConstPixelSpacing[2]+1)*ConstPixelSpacing[2],ConstPixelSpacing[2])
+ArrayDicom = np.zeros(ConstPixelDims,dtype=RefDs.pixel_array.dtype)
+ctdi = []
+sliceloc = []
+phantom = []
+for filenameDCM in lstFilesDCM:
+    ds = pydicom.read_file(filenameDCM)
+    ctdi.append(ds.CTDIvol)
+    sliceloc.append(-ds.ImagePositionPatient[2])
+    phantom.append(ds.CTDIPhantomTypeCodeSequence)
+    ArrayDicom[:,:,lstFilesDCM.index(filenameDCM)] = ds.pixel_array
+
+ctdi = [x for _,x in sorted(zip(sliceloc, ctdi))]
+'''
+phantom[1030]._list # geeft gebruikte fantoom voor corresponderende slice
+plt.figure(dpi=100)
+plt.axes().set_aspect('equal','datalim')
+plt.set_cmap(plt.gray())
+plt.pcolormesh(y, x, np.flipud((ArrayDicom[:, :,100])))
+plt.show()
+'''
+with open("file.txt", "w") as output:
+    output.write(str(ctdi))
